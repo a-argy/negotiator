@@ -23,6 +23,14 @@ struct ProofResult {
     public_values: String,
 }
 
+
+#[derive(Debug, Serialize, Deserialize)]
+struct PublicValues {
+    conditions_verified: bool,
+    num_signatures_verified: u32,
+    public_keys: HashMap<String, String>,
+}
+
 async fn process_data(data: web::Json<VerificationData>) -> impl Responder {
     info!("=== GCP Server - Received New Request ===");
     info!("Verification file content:");
@@ -83,8 +91,9 @@ async fn process_data(data: web::Json<VerificationData>) -> impl Responder {
     let (public_values, report) = client.execute(VERIFY_ELF, &stdin).run().unwrap();
     info!("Executed program with {} cycles", report.total_instruction_count());
     
-    // Decode the public values back into the PublicValues struct
-    let public_values_struct: PublicValues = serde_json::from_slice(&public_values).unwrap();
+    // Convert SP1PublicValues to bytes and then deserialize into PublicValues struct
+    let public_values_bytes = public_values.to_vec();
+    let public_values_struct: PublicValues = serde_json::from_slice(&public_values_bytes).unwrap();
     
     // Create the result with public values
     let result = ProofResult {
