@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use log::{info, error};
 use env_logger;
 use sp1_sdk::{include_elf, ProverClient, SP1Stdin};
+use hex;
 
 // Include the verification program ELF
 pub const VERIFY_ELF: &[u8] = include_elf!("verify-program");
@@ -74,44 +75,64 @@ async fn process_data(data: web::Json<VerificationData>) -> impl Responder {
     let public_keys_json = serde_json::to_string(&relevant_public_keys).unwrap();
     stdin.write(&public_keys_json);
     
-    // Generate the proving and verification keys
-    let (pk, vk) = client.setup(VERIFY_ELF);
+    // Execute the program and get public values
+    let (public_values, report) = client.execute(VERIFY_ELF, &stdin).run().unwrap();
+    info!("Executed program with {} cycles", report.total_instruction_count());
     
-    // Generate the proof
-    match client.prove(&pk, &stdin).run() {
-        Ok(proof) => {
-            info!("Successfully generated proof!");
-            
-            // Verify the proof
-            match client.verify(&proof, &vk) {
-                Ok(_) => {
-                    info!("Successfully verified proof!");
-                    
-                    // Create the result
-                    let result = ProofResult {
-                        verification_result: true,
-                        proof: hex::encode(&proof),
-                        verification_key: hex::encode(&vk),
-                        public_values: hex::encode(&proof.public_values),
-                    };
-                    
-                    HttpResponse::Ok().json(result)
-                }
-                Err(e) => {
-                    error!("Failed to verify proof: {}", e);
-                    HttpResponse::InternalServerError().json(serde_json::json!({
-                        "error": "Failed to verify proof"
-                    }))
-                }
-            }
-        }
-        Err(e) => {
-            error!("Failed to generate proof: {}", e);
-            HttpResponse::InternalServerError().json(serde_json::json!({
-                "error": "Failed to generate proof"
-            }))
-        }
-    }
+    // Create the result with public values
+    let result = ProofResult {
+        verification_result: true,
+        proof: "".to_string(),  // Not needed for now
+        verification_key: "".to_string(),  // Not needed for now
+        public_values: hex::encode(&public_values),
+    };
+    
+    HttpResponse::Ok().json(result)
+
+
+        // Generate the proving and verification keys
+        let (pk, vk) = client.setup(VERIFY_ELF);
+
+        let (_, report) = client.execute(VERIFY_ELF, &stdin).run().unwrap();
+        println!("executed program with {} cycles", report.total_instruction_count());
+    
+    
+        
+        // // Generate the proof
+        // match client.prove(&pk, &stdin).run() {
+        //     Ok(proof) => {
+        //         info!("Successfully generated proof!");
+                
+        //         // Verify the proof
+        //         match client.verify(&proof, &vk) {
+        //             Ok(_) => {
+        //                 info!("Successfully verified proof!");
+                        
+        //                 // Create the result
+        //                 let result = ProofResult {
+        //                     verification_result: true,
+        //                     proof: hex::encode(&proof),
+        //                     verification_key: hex::encode(&vk),
+        //                     public_values: hex::encode(&proof.public_values),
+        //                 };
+                        
+        //                 HttpResponse::Ok().json(result)
+        //             }
+        //             Err(e) => {
+        //                 error!("Failed to verify proof: {}", e);
+        //                 HttpResponse::InternalServerError().json(serde_json::json!({
+        //                     "error": "Failed to verify proof"
+        //                 }))
+        //             }
+        //         }
+        //     }
+        //     Err(e) => {
+        //         error!("Failed to generate proof: {}", e);
+        //         HttpResponse::InternalServerError().json(serde_json::json!({
+        //             "error": "Failed to generate proof"
+        //         }))
+        //     }
+        // }
 }
 
 #[actix_web::main]

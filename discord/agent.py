@@ -195,12 +195,26 @@ class MistralAgent:
                         # Update response based on GCP processing if needed
                         if 'processed_response' in gcp_response:
                             response = gcp_response['processed_response']
+                        
+                        # Send both verification and public values files if available
+                        files = [verification_file]
+                        if 'public_values_file' in gcp_response:
+                            public_values_file = discord.File(gcp_response['public_values_file'])
+                            files.append(public_values_file)
+                            # Clean up the file after sending
+                            try:
+                                os.remove(gcp_response['public_values_file'])
+                            except Exception as e:
+                                logger.error(f"Error cleaning up public values file: {e}")
+                        
+                        await message.reply(response, files=files)
+                    else:
+                        await message.reply(response, file=verification_file)
                     
                 except Exception as e:
                     logger.error(f"Error in GCP processing: {str(e)}")
                     # Continue with original response even if GCP processing fails
-                
-                await message.reply(response, file=verification_file)
+                    await message.reply(response, file=verification_file)
             elif verification_file:
                 await message.reply(response, file=verification_file)
             else:

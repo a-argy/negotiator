@@ -64,6 +64,14 @@ class GCPClient:
             response_data = response.json()
             logger.info(f"GCP Client - Received response: {json.dumps(response_data, indent=2)}")
             
+            # Extract public values from response
+            if 'public_values' in response_data:
+                public_values = response_data['public_values']
+                # Create a file with public values
+                with open('public_values.txt', 'w') as f:
+                    f.write(public_values)
+                response_data['public_values_file'] = 'public_values.txt'
+            
             return response_data
             
         except requests.exceptions.RequestException as e:
