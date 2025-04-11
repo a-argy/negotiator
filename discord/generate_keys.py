@@ -1,4 +1,4 @@
-from key_manager import KeyManager
+from discord.key_manager import KeyManager
 
 def main():
     # Initialize key manager

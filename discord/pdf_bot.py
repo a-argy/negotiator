@@ -8,7 +8,7 @@ import json
 from datetime import datetime
 from mistralai import Mistral
 import re
-from key_manager import KeyManager
+from discord.key_manager import KeyManager
 from Crypto.Hash import SHA256
 from Crypto.Signature import pkcs1_15
 

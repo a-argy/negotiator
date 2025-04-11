@@ -17,8 +17,6 @@ MISTRAL_MODEL = "mistral-large-latest"
 REPLY_DELAY = 4 # second
 ONE_SECOND = 1 # second
 
-FIRST_VERIFICATION = True
-
 # Different personalities for the bots
 PERSONALITIES = {
     "bot1": """You are Bot1, a strategic and motivated negotiator focused on maximizing your own value and outcomes. Use your briefing information carefully during negotiations.
@@ -63,6 +61,7 @@ class MistralAgent:
         self.negotiation_started = False
         self.first_bot_to_speak = None
         self.other_bot_id = None
+        self.first_verification = True  # Add as instance variable
         
     def set_channels(self, briefing_channel_id: int, negotiation_channel_id: int):
         """Set the channel IDs for this agent"""
@@ -175,8 +174,8 @@ class MistralAgent:
             verification_file = await self.verify_facts(response)
                 
             # Send the response
-            if verification_file and FIRST_VERIFICATION:
-                FIRST_VERIFICATION = False
+            if verification_file and self.first_verification == True:
+                self.first_verification = False
                 try:
                     # Log the data being sent to GCP
                     logger.info("Sending data to GCP:")
@@ -247,54 +246,50 @@ class MistralAgent:
             return None
             
         # Create a prompt for the verification
-        prompt = f"""You are a verification assistant that emits **only** executable Python
-expressions (one per line, no comments, no extra text).
-**only when the response contains verifiable claims using the provided data**. If the response does not contain 
-any verifiable claims, output no text. Only verify claims about existing offers. **DO NOT** not try to verify claims 
-about what the bot is desires or is requestingin a potential offer from the other bot, instead output no text. 
-Statments like 'I'm willing to', 'I am looking for', 'How about', 'I'd need', etc. are all indicative of this.
+        prompt = f"""You are a verification assistant that emits only executable Rust expressions
+(one per line, no comments, no extra text).Only when the response contains verifiable claims using the provided data. 
+If the response does not contain any verifiable claims, output no text. 
+Only verify claims about existing offers. DO NOT try to verify claims about what the bot desires or is 
+requesting in a potential offer from the other bot — instead output no text.
+Statements like 'I'm willing to', 'I am looking for', 'How about', 'I'd need', etc. are all indicative of this.
 
 Inputs you receive (in a single user message):
-1. A natural‑language *claim* about some briefing data. The claim is to be
-   treated as honest and literal.
-2. A Python list called `json_dicts` already in scope, whose elements are
-   dictionaries exactly as shown in the user message.
+
+- A natural‑language claim about some briefing data. The claim is to be treated as honest and literal.
+- A Rust variable called json_dicts already in scope, which is a Vec<HashMap<String, serde_json::Value>>.
 
 Task:
-• Parse the claim and decide which fields of `json_dicts` can prove or
-  disprove it, **IF ANY**
-• Write one or more Boolean expressions that will evaluate to **True** when
-  the claim matches the data and **False** otherwise.
-• Use explicit indices (json_dicts[0], json_dicts[1] …) and normal Python
-  operators (`>`, `<`, `==`, `!=`, `>=`, `<=`, `in`, arithmetic, len(), sum(),
-  any(), all(), etc.).
-• For numeric ranges or aggregates, build the minimal expression that proves
-  the claim (e.g. an average → `(json_dicts[0]['...'] + json_dicts[1]['...'])/2 > 1300000`).
-• **Never** echo the claim, never explain, never wrap in markdown – just the
-  raw Python lines.
+• Parse the claim and decide which fields of json_dicts can prove or disprove it, IF ANY
+• Write one or more Boolean expressions in valid Rust syntax that will evaluate to true when
+the claim matches the data and false otherwise.
+• Use explicit indices (json_dicts[0], json_dicts[1], etc.) and access nested values using
+.get("key").unwrap().as_*().unwrap() style (e.g., .as_f64().unwrap() for numbers, .as_str().unwrap() for strings).
+• For numeric ranges or aggregates, build the minimal expression that proves the claim
+(e.g., an average → (json_dicts[0]["..."].as_f64().unwrap() + json_dicts[1]["..."].as_f64().unwrap()) / 2.0 > 1300000.0).
+• Never echo the claim, never explain, never wrap in markdown – just the raw Rust lines.
 
 Examples
-========
-Claim: "Your offer is significantly below the range I've received, which is
-above $1.2 million."
+Claim: "Your offer is significantly below the range I've received, which is above $1.2 million."
 Valid output:
-    json_dicts[0]['signed_data']['data']['offer_amount'] > 1200000
-    json_dicts[1]['signed_data']['data']['offer_amount'] > 1200000
+json_dicts[0]["signed_data"].get("data").unwrap().get("offer_amount").unwrap().as_f64().unwrap() > 1200000.0  
+json_dicts[1]["signed_data"].get("data").unwrap().get("offer_amount").unwrap().as_f64().unwrap() > 1200000.0
 
 Claim: "The average offer I've received is around $1.35 million."
 Valid output:
-    1300000 < (json_dicts[0]['signed_data']['data']['offer_amount']
-                 + json_dicts[1]['signed_data']['data']['offer_amount']) / 2 < 1400000
+((json_dicts[0]["signed_data"].get("data").unwrap().get("offer_amount").unwrap().as_f64().unwrap()
+  + json_dicts[1]["signed_data"].get("data").unwrap().get("offer_amount").unwrap().as_f64().unwrap()) / 2.0) > 1300000.0
+&& ((json_dicts[0]["signed_data"].get("data").unwrap().get("offer_amount").unwrap().as_f64().unwrap()
+  + json_dicts[1]["signed_data"].get("data").unwrap().get("offer_amount").unwrap().as_f64().unwrap()) / 2.0) < 1400000.0
 
-Claim: "I appreciate your offer, but $1.25 million is still a bit low considering the offers I've received. 
-I'm willing to meet in the middle at $1.275 million with the 30-day closing timeline. 
-This seems like a fair compromise. Are there any other minor adjustments or terms you'd like to 
+Claim: "I appreciate your offer, but $1.25 million is still a bit low considering the offers I've received.
+I'm willing to meet in the middle at $1.275 million with the 30-day closing timeline.
+This seems like a fair compromise. Are there any other minor adjustments or terms you'd like to
 discuss to seal the deal?"
 Valid output:
-    json_dicts[1]['signed_data']['data']['offer_amount'] > 1250000
+json_dicts[1]["signed_data"].get("data").unwrap().get("offer_amount").unwrap().as_f64().unwrap() > 1250000.0
 
 Invalid output:
-    json_dicts[0]['signed_data']['data']['offer_amount'] < 1250000
+json_dicts[0]["signed_data"].get("data").unwrap().get("offer_amount").unwrap().as_f64().unwrap() < 1250000.0
 (given that this response does not support our case).
 
 Now your turn, here is your data.
