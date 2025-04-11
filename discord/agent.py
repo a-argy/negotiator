@@ -6,10 +6,18 @@ import json
 from typing import List, Dict, Optional, Any
 from datetime import datetime
 import io
+from gcp_client import GCPClient
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 MISTRAL_MODEL = "mistral-large-latest"
 REPLY_DELAY = 4 # second
 ONE_SECOND = 1 # second
+
+FIRST_VERIFICATION = True
 
 # Different personalities for the bots
 PERSONALITIES = {
@@ -45,6 +53,7 @@ class MistralAgent:
         self.bot_name = bot_name or bot_id
         self.briefing_channel_id: Optional[int] = None
         self.negotiation_channel_id: Optional[int] = None
+        self.gcp_client = GCPClient()
         
         # State management
         self.conversation_history = []
@@ -166,7 +175,34 @@ class MistralAgent:
             verification_file = await self.verify_facts(response)
                 
             # Send the response
-            if verification_file:
+            if verification_file and FIRST_VERIFICATION:
+                FIRST_VERIFICATION = False
+                try:
+                    # Log the data being sent to GCP
+                    logger.info("Sending data to GCP:")
+                    logger.info(f"Response text: {response}")
+                    logger.info(f"Verification file content: {verification_file.fp.getvalue().decode('utf-8')}")
+                    logger.info(f"JSON dicts: {json.dumps(self.json_dicts, indent=2)}")
+                    
+                    # Call GCP function with verification file and json_dicts
+                    gcp_response = await self.gcp_client.call_gcp_function(
+                        verification_file=verification_file.fp.getvalue().decode('utf-8'),
+                        json_dicts=self.json_dicts
+                    )
+                    
+                    # Process GCP response if needed
+                    if gcp_response and isinstance(gcp_response, dict):
+                        logger.info(f"Received GCP response: {gcp_response}")
+                        # Update response based on GCP processing if needed
+                        if 'processed_response' in gcp_response:
+                            response = gcp_response['processed_response']
+                    
+                except Exception as e:
+                    logger.error(f"Error in GCP processing: {str(e)}")
+                    # Continue with original response even if GCP processing fails
+                
+                await message.reply(response, file=verification_file)
+            elif verification_file:
                 await message.reply(response, file=verification_file)
             else:
                 await message.reply(response)
@@ -239,13 +275,13 @@ Task:
 
 Examples
 ========
-Claim: “Your offer is significantly below the range I’ve received, which is
-above $1.2 million.”
+Claim: "Your offer is significantly below the range I've received, which is
+above $1.2 million."
 Valid output:
     json_dicts[0]['signed_data']['data']['offer_amount'] > 1200000
     json_dicts[1]['signed_data']['data']['offer_amount'] > 1200000
 
-Claim: “The average offer I’ve received is around $1.35 million.”
+Claim: "The average offer I've received is around $1.35 million."
 Valid output:
     1300000 < (json_dicts[0]['signed_data']['data']['offer_amount']
                  + json_dicts[1]['signed_data']['data']['offer_amount']) / 2 < 1400000
