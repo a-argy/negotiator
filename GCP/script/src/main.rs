@@ -7,7 +7,7 @@ use sp1_sdk::{include_elf, ProverClient, SP1Stdin};
 use hex;
 
 // Include the verification program ELF
-pub const VERIFY_ELF: &[u8] = include_elf!("verify-program");
+pub const VERIFY_ELF: &[u8] = include_bytes!("../../verification_proof/elf/riscv32im-succinct-zkvm-elf");
 
 #[derive(Debug, Serialize, Deserialize)]
 struct VerificationData {
@@ -40,7 +40,7 @@ async fn process_data(data: web::Json<VerificationData>) -> impl Responder {
         .collect();
     
     // Read public keys from file
-    let all_public_keys: HashMap<String, String> = match std::fs::read_to_string("keys/public_keys.json") {
+    let all_public_keys: HashMap<String, String> = match std::fs::read_to_string("../../keys/public_keys.json") {
         Ok(keys) => serde_json::from_str(&keys).unwrap(),
         Err(e) => {
             error!("Failed to read public keys: {}", e);
@@ -74,29 +74,27 @@ async fn process_data(data: web::Json<VerificationData>) -> impl Responder {
     // Write relevant public keys
     let public_keys_json = serde_json::to_string(&relevant_public_keys).unwrap();
     stdin.write(&public_keys_json);
+
+
+    // Generate the proving and verification keys
+    let (pk, vk) = client.setup(VERIFY_ELF);
     
     // Execute the program and get public values
     let (public_values, report) = client.execute(VERIFY_ELF, &stdin).run().unwrap();
     info!("Executed program with {} cycles", report.total_instruction_count());
+    
+    // Decode the public values back into the PublicValues struct
+    let public_values_struct: PublicValues = serde_json::from_slice(&public_values).unwrap();
     
     // Create the result with public values
     let result = ProofResult {
         verification_result: true,
         proof: "".to_string(),  // Not needed for now
         verification_key: "".to_string(),  // Not needed for now
-        public_values: hex::encode(&public_values),
+        public_values: serde_json::to_string_pretty(&public_values_struct).unwrap(),
     };
     
     HttpResponse::Ok().json(result)
-
-
-        // Generate the proving and verification keys
-        let (pk, vk) = client.setup(VERIFY_ELF);
-
-        let (_, report) = client.execute(VERIFY_ELF, &stdin).run().unwrap();
-        println!("executed program with {} cycles", report.total_instruction_count());
-    
-    
         
         // // Generate the proof
         // match client.prove(&pk, &stdin).run() {
@@ -142,7 +140,7 @@ async fn main() -> std::io::Result<()> {
     env_logger::init();
     
     // Try a range of ports if the default is in use
-    let ports = [8080, 8081, 8082, 8083, 8084];
+    let ports = [8080];
     let mut server = None;
     let mut bound_port = None;
     

@@ -71,6 +71,12 @@ class GCPClient:
                 with open('public_values.txt', 'w') as f:
                     f.write(public_values)
                 response_data['public_values_file'] = 'public_values.txt'
+                # Also store the parsed public values in the response
+                try:
+                    response_data['parsed_public_values'] = json.loads(public_values)
+                except json.JSONDecodeError as e:
+                    logger.error(f"Error parsing public values: {str(e)}")
+                    response_data['parsed_public_values'] = None
             
             return response_data
             

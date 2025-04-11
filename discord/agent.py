@@ -201,6 +201,14 @@ class MistralAgent:
                         if 'public_values_file' in gcp_response:
                             public_values_file = discord.File(gcp_response['public_values_file'])
                             files.append(public_values_file)
+                            
+                            # If we have parsed public values, include them in the message
+                            if 'parsed_public_values' in gcp_response and gcp_response['parsed_public_values']:
+                                public_values = gcp_response['parsed_public_values']
+                                response += "\n\n**Verification Results:**\n"
+                                response += f"- Conditions Verified: {public_values.get('conditions_verified', False)}\n"
+                                response += f"- Number of Signatures Verified: {public_values.get('num_signatures_verified', 0)}\n"
+                            
                             # Clean up the file after sending
                             try:
                                 os.remove(gcp_response['public_values_file'])
