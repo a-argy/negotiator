@@ -29,6 +29,34 @@ async fn process_data(data: web::Json<VerificationData>) -> impl Responder {
     info!("\nJSON dictionaries received:");
     info!("{}", serde_json::to_string_pretty(&data.json_dicts).unwrap());
     
+    // Extract signers from json_dicts
+    let signers: Vec<String> = data.json_dicts.iter()
+        .filter_map(|dict| {
+            dict.get("signer")
+                .and_then(|signer| signer.as_str())
+                .map(|s| s.to_string())
+        })
+        .collect();
+    
+    // Read public keys from file
+    let all_public_keys: HashMap<String, String> = match std::fs::read_to_string("keys/public_keys.json") {
+        Ok(keys) => serde_json::from_str(&keys).unwrap(),
+        Err(e) => {
+            error!("Failed to read public keys: {}", e);
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "error": "Failed to read public keys"
+            }));
+        }
+    };
+    
+    // Filter public keys to only include those of the signers
+    let relevant_public_keys: HashMap<String, String> = signers.into_iter()
+        .filter_map(|signer| {
+            all_public_keys.get(&signer)
+                .map(|key| (signer, key.clone()))
+        })
+        .collect();
+    
     // Setup the prover client
     let client = ProverClient::from_env();
     
@@ -41,6 +69,10 @@ async fn process_data(data: web::Json<VerificationData>) -> impl Responder {
     // Write JSON data
     let json_data = serde_json::to_string(&data.json_dicts).unwrap();
     stdin.write(&json_data);
+    
+    // Write relevant public keys
+    let public_keys_json = serde_json::to_string(&relevant_public_keys).unwrap();
+    stdin.write(&public_keys_json);
     
     // Generate the proving and verification keys
     let (pk, vk) = client.setup(VERIFY_ELF);

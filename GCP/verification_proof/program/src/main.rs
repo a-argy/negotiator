@@ -4,6 +4,7 @@ sp1_zkvm::entrypoint!(main);
 use alloy_sol_types::SolType;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::collections::HashMap;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct SignedData {
@@ -24,6 +25,7 @@ struct Document {
 struct PublicValues {
     conditions_verified: bool,
     num_signatures_verified: u32,
+    public_keys: HashMap<String, String>,
 }
 
 pub fn main() {
@@ -34,10 +36,14 @@ pub fn main() {
     let json_data = sp1_zkvm::io::read::<String>();
     let documents: Vec<Document> = serde_json::from_str(&json_data).unwrap();
     
+    // Read public keys from stdin
+    let public_keys_json = sp1_zkvm::io::read::<String>();
+    let public_keys: HashMap<String, String> = serde_json::from_str(&public_keys_json).unwrap();
+    
     // Verify signatures
     let mut valid_signatures = 0;
     for doc in &documents {
-        if verify_signature(&doc.signed_data) {
+        if verify_signature(&doc.signed_data, &public_keys) {
             valid_signatures += 1;
         }
     }
@@ -49,6 +55,7 @@ pub fn main() {
     let public_values = PublicValues {
         conditions_verified: conditions_met,
         num_signatures_verified: valid_signatures,
+        public_keys,
     };
     
     // Encode and commit public values
@@ -56,8 +63,14 @@ pub fn main() {
     sp1_zkvm::io::commit_slice(&bytes);
 }
 
-fn verify_signature(signed_data: &SignedData) -> bool {
-    // TODO: Implement actual signature verification
+fn verify_signature(signed_data: &SignedData, public_keys: &HashMap<String, String>) -> bool {
+    // Get the public key for the signer
+    let public_key = match public_keys.get(&signed_data.signature) {
+        Some(key) => key,
+        None => return false,
+    };
+    
+    // TODO: Implement actual signature verification using the public key
     // For now, just check if signature exists and is non-empty
     !signed_data.signature.is_empty()
 }
