@@ -62,5 +62,15 @@ examples/elf
 # Rust build artifacts
 **/target/
 **/Cargo.lock
+**/*.rlib
+**/*.so
+**/*.dylib
+**/*.dll
+**/*.exe
+**/debug/
+**/release/
+**/incremental/
+**/.cargo/
+**/build/
 
 GCP/script/target/debug

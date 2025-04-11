@@ -1,6 +1,16 @@
 # Cargo build
 target/
 Cargo.lock
+*.rlib
+*.so
+*.dylib
+*.dll
+*.exe
+debug/
+release/
+incremental/
+.cargo/
+build/
 
 # Cargo config
 .cargo
@@ -22,3 +32,8 @@ proof-with-io.json
 # IDE
 .vscode/
 .idea/
+
+# Build artifacts
+**/build_script_build-*
+**/build-script-build
+**/dep-graph.bin
