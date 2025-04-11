@@ -1,0 +1,6 @@
+nohup: ignoring input
+[2025-04-11T18:32:27Z INFO  gcp_script] === Starting GCP Server ===
+[2025-04-11T18:32:27Z INFO  gcp_script] Listening on: 0.0.0.0:8080
+[2025-04-11T18:32:27Z INFO  gcp_script] Ready to receive data from Discord bot
+[2025-04-11T18:32:27Z INFO  gcp_script] Press Ctrl+C to stop the server
+Error: Os { code: 98, kind: AddrInUse, message: "Address already in use" }
