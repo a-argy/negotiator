@@ -64,6 +64,18 @@ class GCPClient:
             response_data = response.json()
             logger.info(f"GCP Client - Received response: {json.dumps(response_data, indent=2)}")
             
+            # Create verification data file
+            verification_data = {
+                "proof": response_data.get("proof", ""),
+                "verification_key": response_data.get("verification_key", ""),
+                "public_values": response_data.get("public_values", "")
+            }
+            
+            # Save verification data to file
+            with open('verification_data.json', 'w') as f:
+                json.dump(verification_data, f, indent=2)
+            response_data['verification_data_file'] = 'verification_data.json'
+            
             # If we have public values, save them to a file
             if 'public_values' in response_data:
                 public_values = response_data['public_values']

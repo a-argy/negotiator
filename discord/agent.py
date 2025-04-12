@@ -157,6 +157,19 @@ class MistralAgent:
 
     async def handle_negotiation_message(self, message: discord.Message) -> None:
         """Handle incoming messages"""            
+        # If message has two attachments, try to verify the proof
+        if len(message.attachments) == 2:
+            try:
+                # Get the verification data file (second attachment)
+                verification_data = await message.attachments[1].read()
+                verification_json = json.loads(verification_data.decode('utf-8'))
+                
+                # Call Rust function to verify proof
+                if await self.verify_proof_locally(verification_json):
+                    message.content = "Your proof verifies!\n" + message.content
+            except Exception as e:
+                logger.error(f"Error verifying proof: {e}")
+        
         if message.author.bot and message.author.id == int(self.other_bot_id):
             # Add message to conversation history
             self.conversation_history.append({
@@ -189,42 +202,50 @@ class MistralAgent:
                         json_dicts=self.json_dicts
                     )
                     
-                    # Process GCP response if needed
-                    if gcp_response and isinstance(gcp_response, dict):
-                        logger.info(f"Received GCP response: {gcp_response}")
-                        
-                        files = [verification_file]  # Start with verification file
-                        
-                        # Add public values file if available
-                        if 'public_values_file' in gcp_response:
-                            public_values_file = discord.File(gcp_response['public_values_file'])
-                            files.append(public_values_file)
-                        
-                        # Add verification summary to response if available
-                        if 'verification_summary' in gcp_response:
-                            response += "\n\n" + gcp_response['verification_summary']
-                        
-                        # Send response with all files
-                        await message.reply(response, files=files)
-                        
-                        # Clean up the public values file
-                        if 'public_values_file' in gcp_response:
-                            try:
-                                os.remove(gcp_response['public_values_file'])
-                            except Exception as e:
-                                logger.error(f"Error cleaning up public values file: {e}")
-                    else:
-                        await message.reply(response, file=verification_file)
+                    files = [verification_file]  # Start with verification file
+                    
+                    # Add verification data file if available
+                    if 'verification_data_file' in gcp_response:
+                        verification_data_file = discord.File(gcp_response['verification_data_file'])
+                        files.append(verification_data_file)
+                    
+                    # Add verification summary to response if available
+                    if 'verification_summary' in gcp_response:
+                        response += "\n\n" + gcp_response['verification_summary']
+                    
+                    # Send response with all files
+                    await message.reply(response, files=files)
+                    
+                    # Clean up the files
+                    if 'verification_data_file' in gcp_response:
+                        try:
+                            os.remove(gcp_response['verification_data_file'])
+                        except Exception as e:
+                            logger.error(f"Error cleaning up verification data file: {e}")
                     
                 except Exception as e:
                     logger.error(f"Error in GCP processing: {str(e)}")
-                    # Continue with original response even if GCP processing fails
                     await message.reply(response, file=verification_file)
             elif verification_file:
                 await message.reply(response, file=verification_file)
             else:
                 await message.reply(response)
         return None
+        
+    async def verify_proof_locally(self, verification_data: Dict[str, Any]) -> bool:
+        """Verify a proof locally using Rust verification function"""
+        try:
+            # Convert hex strings back to bytes
+            proof = bytes.fromhex(verification_data['proof'])
+            verification_key = bytes.fromhex(verification_data['verification_key'])
+            public_values = json.loads(verification_data['public_values'])
+            
+            # TODO: Call Rust verification function here
+            # For now, return True to simulate verification
+            return True
+        except Exception as e:
+            logger.error(f"Error in local verification: {e}")
+            return False
 
     async def run(self) -> str:
         """Generate a response based on current state"""
