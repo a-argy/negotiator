@@ -23,12 +23,12 @@ struct ProofResult {
     public_values: String,
 }
 
-
 #[derive(Debug, Serialize, Deserialize)]
 struct PublicValues {
+    public_keys: Vec<String>,
+    conditions: String,
+    signature_verified: bool,
     conditions_verified: bool,
-    num_signatures_verified: u32,
-    public_keys: HashMap<String, String>,
 }
 
 async fn process_data(data: web::Json<VerificationData>) -> impl Responder {
@@ -41,30 +41,33 @@ async fn process_data(data: web::Json<VerificationData>) -> impl Responder {
     // Extract signers from json_dicts
     let signers: Vec<String> = data.json_dicts.iter()
         .filter_map(|dict| {
-            dict.get("signer")
+            dict.get("signed_data")
+                .and_then(|signed_data| signed_data.as_object())
+                .and_then(|signed_data_obj| signed_data_obj.get("signer"))
                 .and_then(|signer| signer.as_str())
-                .map(|s| s.to_string())
+                .map(String::from)
         })
         .collect();
     
-    // Read public keys from file
-    let all_public_keys: HashMap<String, String> = match std::fs::read_to_string("../../keys/public_keys.json") {
-        Ok(keys) => serde_json::from_str(&keys).unwrap(),
+    info!("Extracted signers: {:?}", signers);
+    
+    // Read and parse public keys file
+    let public_keys: HashMap<String, String> = match std::fs::read_to_string("keys/public_keys.json") {
+        Ok(content) => serde_json::from_str(&content).unwrap(),
         Err(e) => {
-            error!("Failed to read public keys: {}", e);
+            error!("Failed to read public_keys.json: {}", e);
             return HttpResponse::InternalServerError().json(serde_json::json!({
-                "error": "Failed to read public keys"
+                "error": "Failed to read public keys file"
             }));
         }
     };
     
-    // Filter public keys to only include those of the signers
-    let relevant_public_keys: HashMap<String, String> = signers.into_iter()
-        .filter_map(|signer| {
-            all_public_keys.get(&signer)
-                .map(|key| (signer, key.clone()))
-        })
+    // Create vector of just the public keys for our signers
+    let relevant_keys: Vec<String> = signers.iter()
+        .filter_map(|signer| public_keys.get(signer).cloned())
         .collect();
+    
+    info!("Found {} relevant public keys", relevant_keys.len());
     
     // Setup the prover client
     let client = ProverClient::from_env();
@@ -79,10 +82,8 @@ async fn process_data(data: web::Json<VerificationData>) -> impl Responder {
     let json_data = serde_json::to_string(&data.json_dicts).unwrap();
     stdin.write(&json_data);
     
-    // Write relevant public keys
-    let public_keys_json = serde_json::to_string(&relevant_public_keys).unwrap();
-    stdin.write(&public_keys_json);
-
+    // Write the vector of public keys
+    stdin.write(&relevant_keys);
 
     // Generate the proving and verification keys
     let (pk, vk) = client.setup(VERIFY_ELF);
@@ -93,53 +94,29 @@ async fn process_data(data: web::Json<VerificationData>) -> impl Responder {
     
     // Convert SP1PublicValues to bytes and then deserialize into PublicValues struct
     let public_values_bytes = public_values.to_vec();
-    let public_values_struct: PublicValues = serde_json::from_slice(&public_values_bytes).unwrap();
+    let public_values_struct: PublicValues = match serde_json::from_slice(&public_values_bytes) {
+        Ok(values) => {
+            info!("Successfully parsed public values: {:?}", values);
+            values
+        },
+        Err(e) => {
+            error!("Failed to parse public values: {}", e);
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "error": format!("Failed to parse public values: {}", e)
+            }));
+        }
+    };
     
-    // Create the result with public values
+    // Create the result with public values as a pretty-printed string
     let result = ProofResult {
-        verification_result: true,
-        proof: "".to_string(),  // Not needed for now
-        verification_key: "".to_string(),  // Not needed for now
+        verification_result: public_values_struct.signature_verified && public_values_struct.conditions_verified,
+        proof: "".to_string(),
+        verification_key: "".to_string(),
         public_values: serde_json::to_string_pretty(&public_values_struct).unwrap(),
     };
     
+    info!("Sending response with public values: {}", result.public_values);
     HttpResponse::Ok().json(result)
-        
-        // // Generate the proof
-        // match client.prove(&pk, &stdin).run() {
-        //     Ok(proof) => {
-        //         info!("Successfully generated proof!");
-                
-        //         // Verify the proof
-        //         match client.verify(&proof, &vk) {
-        //             Ok(_) => {
-        //                 info!("Successfully verified proof!");
-                        
-        //                 // Create the result
-        //                 let result = ProofResult {
-        //                     verification_result: true,
-        //                     proof: hex::encode(&proof),
-        //                     verification_key: hex::encode(&vk),
-        //                     public_values: hex::encode(&proof.public_values),
-        //                 };
-                        
-        //                 HttpResponse::Ok().json(result)
-        //             }
-        //             Err(e) => {
-        //                 error!("Failed to verify proof: {}", e);
-        //                 HttpResponse::InternalServerError().json(serde_json::json!({
-        //                     "error": "Failed to verify proof"
-        //                 }))
-        //             }
-        //         }
-        //     }
-        //     Err(e) => {
-        //         error!("Failed to generate proof: {}", e);
-        //         HttpResponse::InternalServerError().json(serde_json::json!({
-        //             "error": "Failed to generate proof"
-        //         }))
-        //     }
-        // }
 }
 
 #[actix_web::main]

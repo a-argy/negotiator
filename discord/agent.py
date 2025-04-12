@@ -192,30 +192,27 @@ class MistralAgent:
                     # Process GCP response if needed
                     if gcp_response and isinstance(gcp_response, dict):
                         logger.info(f"Received GCP response: {gcp_response}")
-                        # Update response based on GCP processing if needed
-                        if 'processed_response' in gcp_response:
-                            response = gcp_response['processed_response']
                         
-                        # Send both verification and public values files if available
-                        files = [verification_file]
+                        files = [verification_file]  # Start with verification file
+                        
+                        # Add public values file if available
                         if 'public_values_file' in gcp_response:
                             public_values_file = discord.File(gcp_response['public_values_file'])
                             files.append(public_values_file)
-                            
-                            # If we have parsed public values, include them in the message
-                            if 'parsed_public_values' in gcp_response and gcp_response['parsed_public_values']:
-                                public_values = gcp_response['parsed_public_values']
-                                response += "\n\n**Verification Results:**\n"
-                                response += f"- Conditions Verified: {public_values.get('conditions_verified', False)}\n"
-                                response += f"- Number of Signatures Verified: {public_values.get('num_signatures_verified', 0)}\n"
-                            
-                            # Clean up the file after sending
+                        
+                        # Add verification summary to response if available
+                        if 'verification_summary' in gcp_response:
+                            response += "\n\n" + gcp_response['verification_summary']
+                        
+                        # Send response with all files
+                        await message.reply(response, files=files)
+                        
+                        # Clean up the public values file
+                        if 'public_values_file' in gcp_response:
                             try:
                                 os.remove(gcp_response['public_values_file'])
                             except Exception as e:
                                 logger.error(f"Error cleaning up public values file: {e}")
-                        
-                        await message.reply(response, files=files)
                     else:
                         await message.reply(response, file=verification_file)
                     

@@ -56,7 +56,7 @@ class GCPClient:
                 self.gcp_endpoint,
                 headers=headers,
                 json=payload,
-                timeout=30  # 30 second timeout
+                timeout=1000000  
             )
             
             response.raise_for_status()  # Raise exception for bad status codes
@@ -64,19 +64,27 @@ class GCPClient:
             response_data = response.json()
             logger.info(f"GCP Client - Received response: {json.dumps(response_data, indent=2)}")
             
-            # Extract public values from response
+            # If we have public values, save them to a file
             if 'public_values' in response_data:
                 public_values = response_data['public_values']
                 # Create a file with public values
                 with open('public_values.txt', 'w') as f:
                     f.write(public_values)
                 response_data['public_values_file'] = 'public_values.txt'
-                # Also store the parsed public values in the response
+                
+                # Parse the public values to add to response
                 try:
-                    response_data['parsed_public_values'] = json.loads(public_values)
+                    parsed_values = json.loads(public_values)
+                    verification_summary = (
+                        "**Verification Results:**\n"
+                        f"- Conditions Verified: {parsed_values.get('conditions_verified', False)}\n"
+                        f"- Signatures Verified: {parsed_values.get('signature_verified', False)}\n"
+                        f"- Number of Public Keys: {len(parsed_values.get('public_keys', []))}\n"
+                        f"- Conditions Checked:\n```\n{parsed_values.get('conditions', 'None')}\n```"
+                    )
+                    response_data['verification_summary'] = verification_summary
                 except json.JSONDecodeError as e:
                     logger.error(f"Error parsing public values: {str(e)}")
-                    response_data['parsed_public_values'] = None
             
             return response_data
             
