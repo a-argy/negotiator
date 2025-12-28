@@ -11,21 +11,6 @@ zkNegotiate hosts two Discord bots that negotiate with each other, powered by Mi
 - **Structured autonomy**: Dual agents with briefing intake, memory, and verification create a realistic negotiation sandbox for testing strategies.
 - **Composable stack**: Discord bots + Mistral LLM + SP1 zkVM + GCP service show how to pair language agents with cryptographic attestations.
 
-## Key Features
-- **Dual Discord Bots**: `bot1` and `bot2` run independently with separate prefixes, briefing channels, and shared negotiation channel.
-- **Strategic Personalities**: Each bot follows a concise, 100-word-max negotiation style that withholds exact figures while remaining truthful.
-- **Briefing Intake**: Bots can ingest free text and JSON attachments from their briefing channels to build negotiation context.
-- **Conversation Management**: Maintains structured history and context, with `start` commands to kick off a negotiation and `transcript` commands to view history.
-- **Fact Verification Pipeline**: Generates Rust expressions to verify claims against provided JSON data; produces `verification.txt` attachments.
-- **Zero-Knowledge Proofs (GCP)**: Offloads verification to a GCP endpoint running an SP1 zkVM program; returns verification summaries and optional proof artifacts.
-- **Key Management**: RSA keypair handling with stored public/private keys for signing/verification of submitted data.
-
-## How It Works (Flow)
-1) Users post briefing data (text/JSON) in each bot’s briefing channel.  
-2) Bots negotiate in the shared negotiation channel.  
-3) When a claim is made, the agent generates verifiable statements.  
-4) GCP server (Actix + SP1 zkVM) evaluates conditions and returns public values/summary; bots can attach these to replies.
-
 ### Demo Video
 [![Watch the demo](https://img.shields.io/badge/▶️_Watch_Demo-Google_Drive-4285F4?style=for-the-badge&logo=googledrive&logoColor=white)](https://drive.google.com/file/d/1M-YDIFL-KZWT5vsMvRosMmEvMExtXJpz/view?usp=sharing)
 
@@ -61,6 +46,21 @@ Imagine you're selling a property and have received multiple offers. You want to
 5. **Attach proof to reply:** Your bot attaches `verification.txt` and optionally a `verification_data.json` to the message. The counterparty's bot can verify the proof locally, confirming the claim is backed by authentic signed data—without ever seeing the exact offer amount.
 
 **Result:** The counterparty knows a legitimate competing offer exceeds their bid, but learns nothing more. Trust is established cryptographically, not on faith.
+
+## Key Features
+- **Dual Discord Bots**: `bot1` and `bot2` run independently with separate prefixes, briefing channels, and shared negotiation channel.
+- **Strategic Personalities**: Each bot follows a concise, 100-word-max negotiation style that withholds exact figures while remaining truthful.
+- **Briefing Intake**: Bots can ingest free text and JSON attachments from their briefing channels to build negotiation context.
+- **Conversation Management**: Maintains structured history and context, with `start` commands to kick off a negotiation and `transcript` commands to view history.
+- **Fact Verification Pipeline**: Generates Rust expressions to verify claims against provided JSON data; produces `verification.txt` attachments.
+- **Zero-Knowledge Proofs (GCP)**: Offloads verification to a GCP endpoint running an SP1 zkVM program; returns verification summaries and optional proof artifacts.
+- **Key Management**: RSA keypair handling with stored public/private keys for signing/verification of submitted data.
+
+## How It Works (Flow)
+1) Users post briefing data (text/JSON) in each bot’s briefing channel.  
+2) Bots negotiate in the shared negotiation channel.  
+3) When a claim is made, the agent generates verifiable statements.  
+4) GCP server (Actix + SP1 zkVM) evaluates conditions and returns public values/summary; bots can attach these to replies.
 
 ## Structure
 - `discord/agent.py` — MistralAgent: personality prompts, context assembly, verification prompt, proof handling.  
