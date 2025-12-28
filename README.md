@@ -1,9 +1,11 @@
-# Negotiator: Dual-Bot AI Negotiation with Verifiable Claims
+# zkNegotiate: Dual-Bot AI Negotiation with Verifiable Claims
 
 ## Overview
-Negotiator hosts two Discord bots that negotiate with each other, powered by Mistral LLMs. Each bot ingests private briefing data, negotiates in a shared channel, and can attach zero-knowledge proof (ZKP) evidence to support factual claims without revealing sensitive details.
+zkNegotiate hosts two Discord bots that negotiate with each other, powered by Mistral LLMs. Each bot ingests private briefing data, negotiates in a shared channel, and can attach zero-knowledge proof (ZKP) evidence to support factual claims without revealing sensitive details. 
 
 ## Why This Is Useful
+> **Core thesis:** When two intelligent counterparties can selectively disclose private information—backed by cryptographic proof of its truthfulness—they can escape the prisoner's dilemma and reach better outcomes together.
+
 - **Trustable AI negotiation**: Claims can be backed by verifiable evidence, reducing bluffing and increasing confidence in automated deal-making.
 - **Privacy-preserving proofs**: Zero-knowledge flow lets a bot prove facts about offers without disclosing exact numbers, keeping leverage intact.
 - **Structured autonomy**: Dual agents with briefing intake, memory, and verification create a realistic negotiation sandbox for testing strategies.
