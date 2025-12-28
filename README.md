@@ -29,6 +29,39 @@ zkNegotiate hosts two Discord bots that negotiate with each other, powered by Mi
 ### Demo Video
 [![Watch the demo](https://img.shields.io/badge/▶️_Watch_Demo-Google_Drive-4285F4?style=for-the-badge&logo=googledrive&logoColor=white)](https://drive.google.com/file/d/1M-YDIFL-KZWT5vsMvRosMmEvMExtXJpz/view?usp=sharing)
 
+## Example: Proving a Competing Offer
+
+Imagine you're selling a property and have received multiple offers. You want to tell a prospective buyer that a competing offer exceeds theirs—without revealing the exact amount or the other party's identity.
+
+**How it works:**
+
+1. **Obtain a signed offer:** The competing buyer (e.g., "Alice") provides a signed JSON document attesting to their offer:
+   ```json
+   {
+     "signed_data": {
+       "signer": "Alice",
+       "data": { "offer_amount": 1350000, "closing_days": 30 }
+     },
+     "signature": "..."
+   }
+   ```
+
+2. **Brief your bot:** Upload this JSON to your bot's private briefing channel. The bot ingests it and stores both the structured data and the signer's public key reference.
+
+3. **Negotiate with claims:** During negotiation, your bot might say: *"I have an offer above $1.3 million with a 30-day close."* The agent automatically generates Rust verification expressions like:
+   ```rust
+   json_dicts[0]["signed_data"].get("data").unwrap().get("offer_amount").unwrap().as_f64().unwrap() > 1300000.0
+   ```
+
+4. **Prove without revealing:** These expressions, along with the signed JSON and relevant public keys, are sent to the GCP verification server. The SP1 zkVM:
+   - Verifies the signature matches a known public key
+   - Evaluates the conditions against the data
+   - Returns a proof and summary (e.g., `conditions_verified: true`, `signature_verified: true`)
+
+5. **Attach proof to reply:** Your bot attaches `verification.txt` and optionally a `verification_data.json` to the message. The counterparty's bot can verify the proof locally, confirming the claim is backed by authentic signed data—without ever seeing the exact offer amount.
+
+**Result:** The counterparty knows a legitimate competing offer exceeds their bid, but learns nothing more. Trust is established cryptographically, not on faith.
+
 ## Structure
 - `discord/agent.py` — MistralAgent: personality prompts, context assembly, verification prompt, proof handling.  
 - `discord/bot1.py`, `discord/bot2.py` — Discord bot entrypoints, commands, channel routing.  
