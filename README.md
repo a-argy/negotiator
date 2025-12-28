@@ -26,6 +26,9 @@ zkNegotiate hosts two Discord bots that negotiate with each other, powered by Mi
 3) When a claim is made, the agent generates verifiable statements.  
 4) GCP server (Actix + SP1 zkVM) evaluates conditions and returns public values/summary; bots can attach these to replies.
 
+### Demo Video
+[![Watch the demo](https://img.shields.io/badge/▶️_Watch_Demo-Google_Drive-4285F4?style=for-the-badge&logo=googledrive&logoColor=white)](https://drive.google.com/file/d/1M-YDIFL-KZWT5vsMvRosMmEvMExtXJpz/view?usp=sharing)
+
 ## Structure
 - `discord/agent.py` — MistralAgent: personality prompts, context assembly, verification prompt, proof handling.  
 - `discord/bot1.py`, `discord/bot2.py` — Discord bot entrypoints, commands, channel routing.  
