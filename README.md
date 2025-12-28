@@ -56,12 +56,6 @@ Imagine you're selling a property and have received multiple offers. You want to
 - **Zero-Knowledge Proofs (GCP)**: Offloads verification to a GCP endpoint running an SP1 zkVM program; returns verification summaries and optional proof artifacts.
 - **Key Management**: RSA keypair handling with stored public/private keys for signing/verification of submitted data.
 
-## How It Works (Flow)
-1) Users post briefing data (text/JSON) in each bot’s briefing channel.  
-2) Bots negotiate in the shared negotiation channel.  
-3) When a claim is made, the agent generates verifiable statements.  
-4) GCP server (Actix + SP1 zkVM) evaluates conditions and returns public values/summary; bots can attach these to replies.
-
 ## Structure
 - `discord/agent.py` — MistralAgent: personality prompts, context assembly, verification prompt, proof handling.  
 - `discord/bot1.py`, `discord/bot2.py` — Discord bot entrypoints, commands, channel routing.  
